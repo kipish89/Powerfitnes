@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PowerFitness.Api/PowerFitness.Api.csproj" />
+  <Project Path="PowerFitness.App/PowerFitness.App.csproj" />
+</Solution>

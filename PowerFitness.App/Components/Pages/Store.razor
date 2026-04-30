@@ -1,0 +1,157 @@
+@page "/store"
+@inject FitnessApiClient ApiClient
+@inject AppState AppState
+@inject SessionSyncService SessionSync
+
+<PageTitle>Магазин</PageTitle>
+
+<section class="section-title">
+    <h1>Магазин PowerFitness</h1>
+    <p>Выбор абонемента, запуск оплаты через Telegram и базовое управление каталогом абонементов.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(PurchaseStatus))
+{
+    <div class="status-box">@PurchaseStatus</div>
+}
+
+<div class="product-grid">
+    @foreach (var item in Plans)
+    {
+        <article class="product-card">
+            <div class="product-icon">PF</div>
+            <h2>@item.Title</h2>
+            <div class="price">@item.Price ₽</div>
+            <p>@item.Description</p>
+            <div class="action-row">
+                <button @onclick="@(() => BuyAsync(item))">Оплатить через Telegram</button>
+                @if (CanManageCatalog)
+                {
+                    <button @onclick="@(() => StartEdit(item))">Редактировать</button>
+                    <button @onclick="@(() => DeletePlanAsync(item.Id))">Удалить</button>
+                }
+            </div>
+        </article>
+    }
+</div>
+
+@if (CanManageCatalog)
+{
+    <section class="neon-card">
+        <h2>Управление абонементами</h2>
+        <div class="form-grid">
+            <input @bind="Editor.Code" placeholder="Код" />
+            <input @bind="Editor.Title" placeholder="Название" />
+            <input type="number" min="1" @bind="Editor.DurationMonths" placeholder="Месяцы" />
+            <input type="number" min="0" step="100" @bind="Editor.Price" placeholder="Цена" />
+            <textarea @bind="Editor.Description" placeholder="Описание"></textarea>
+        </div>
+        <div class="action-row">
+            <button @onclick="SavePlanAsync">@SaveButtonText</button>
+            @if (Editor.Id != Guid.Empty)
+            {
+                <button @onclick="ResetEditor">Отменить редактирование</button>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private IReadOnlyList<MembershipPlanVm> Plans { get; set; } = [];
+    private DashboardVm? Dashboard { get; set; }
+    private MembershipPlanVm Editor { get; set; } = CreateEmptyPlan();
+    private string PurchaseStatus { get; set; } = string.Empty;
+
+    private bool CanManageCatalog =>
+        Dashboard?.User?.IsTrainer == true &&
+        Dashboard.TrainerProfile?.CanManagePrograms == true;
+    private string SaveButtonText => Editor.Id == Guid.Empty ? "Создать абонемент" : "Сохранить изменения";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SessionSync.TryRestoreCurrentUserAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        Plans = await ApiClient.GetMembershipsAsync();
+        if (AppState.CurrentUserId.HasValue)
+        {
+            Dashboard = await ApiClient.GetDashboardAsync(AppState.CurrentUserId.Value);
+        }
+    }
+
+    private async Task BuyAsync(MembershipPlanVm plan)
+    {
+        await SessionSync.TryRestoreCurrentUserAsync();
+
+        if (!AppState.CurrentUserId.HasValue)
+        {
+            PurchaseStatus = "Сначала войди в аккаунт или подтверди профиль через Telegram.";
+            return;
+        }
+
+        var type = plan.Code.StartsWith("pro", StringComparison.OrdinalIgnoreCase) ? "pro" : "membership";
+        var result = await ApiClient.CreatePurchaseAsync(AppState.CurrentUserId.Value, plan.Code, type);
+        PurchaseStatus = result.Status;
+
+        if (!string.IsNullOrWhiteSpace(result.DeepLink))
+        {
+            await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Uri(result.DeepLink));
+        }
+    }
+
+    private void StartEdit(MembershipPlanVm plan)
+    {
+        Editor = new MembershipPlanVm
+        {
+            Id = plan.Id,
+            Code = plan.Code,
+            Title = plan.Title,
+            DurationMonths = plan.DurationMonths,
+            Price = plan.Price,
+            Description = plan.Description
+        };
+    }
+
+    private void ResetEditor()
+    {
+        Editor = CreateEmptyPlan();
+    }
+
+    private async Task SavePlanAsync()
+    {
+        var isCreate = Editor.Id == Guid.Empty;
+        var result = await ApiClient.SaveMembershipAsync(Editor);
+        if (!result.Success)
+        {
+            PurchaseStatus = string.IsNullOrWhiteSpace(result.Message) ? "Не удалось сохранить абонемент." : result.Message;
+            return;
+        }
+
+        PurchaseStatus = isCreate ? "Абонемент создан." : "Абонемент обновлён.";
+        ResetEditor();
+        await LoadAsync();
+    }
+
+    private async Task DeletePlanAsync(Guid id)
+    {
+        var result = await ApiClient.DeleteMembershipAsync(id);
+        if (!result.Success)
+        {
+            PurchaseStatus = string.IsNullOrWhiteSpace(result.Message) ? "Не удалось удалить абонемент." : result.Message;
+            return;
+        }
+
+        PurchaseStatus = "Абонемент удалён.";
+        await LoadAsync();
+    }
+
+    private static MembershipPlanVm CreateEmptyPlan() =>
+        new()
+        {
+            DurationMonths = 1,
+            Price = 1000
+        };
+}

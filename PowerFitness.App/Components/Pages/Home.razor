@@ -1,0 +1,228 @@
+@page "/"
+@inject FitnessApiClient ApiClient
+@inject AppState AppState
+@inject SessionSyncService SessionSync
+
+<PageTitle>PowerFitness</PageTitle>
+
+<section class="hero-panel">
+    <div>
+        <div class="brand-title">PowerFitness</div>
+        <p class="hero-subtitle">Покупка и продление абонементов, Pro-подписка и доступ к тренировочным программам в одном приложении.</p>
+    </div>
+    <div class="hero-pill">JWT + Telegram</div>
+</section>
+
+<section class="cta-panel">
+    <h1>Вход через телефон</h1>
+    <p>Обычный логин и регистрация работают через JWT. Telegram-вход оставлен как дополнительный способ подтверждения.</p>
+
+    <div class="phone-form auth-block">
+        <input @bind="AuthPhoneNumber" placeholder="+7 (999) 123-45-67" />
+        <input @bind="AuthPassword" type="password" placeholder="Пароль" />
+        <input @bind="AuthFirstName" placeholder="Имя (для регистрации)" />
+        <input @bind="AuthLastName" placeholder="Фамилия (для регистрации)" />
+        <div class="action-row">
+            <button @onclick="LoginAsync" disabled="@IsBusy">Войти</button>
+            <button @onclick="RegisterAsync" disabled="@IsBusy">Регистрация</button>
+            <button @onclick="Logout" disabled="@IsBusy || !IsAuthenticated">Выйти</button>
+        </div>
+    </div>
+
+    <div class="note-box">
+        Статус авторизации: <strong>@AuthStatus</strong>
+    </div>
+
+    <div class="phone-form">
+        <input @bind="PhoneNumber" placeholder="+7 (999) 123-45-67" />
+        <button @onclick="StartRegistrationAsync" disabled="@IsBusy">Отправить в Telegram</button>
+        @if (AppState.PendingTicketId.HasValue)
+        {
+            <button @onclick="RefreshRegistrationAsync" disabled="@IsBusy">Проверить подтверждение</button>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="status-box">@StatusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(DeepLink))
+    {
+        <a class="deep-link" href="@DeepLink" target="_blank">Открыть бота</a>
+    }
+
+    <div class="note-box">
+        Текущий пользователь: <strong>@DisplayPhone</strong>
+    </div>
+</section>
+
+<section class="neon-card">
+    <h2>Адрес сервера</h2>
+    <p class="muted-text">Для Android можно указать локальный адрес сервера или публичный HTTPS-адрес.</p>
+
+    <div class="phone-form">
+        <input @bind="ApiBaseUrl" placeholder="https://api.powerfitness.example/" />
+        <button @onclick="SaveApiAddress">Сохранить адрес API</button>
+    </div>
+
+    <div class="note-box">
+        Текущий API: <strong>@CurrentApiBaseUrl</strong>
+    </div>
+</section>
+
+<section class="feature-grid">
+    <article class="neon-card">
+        <h2>Магазин</h2>
+        <p>Абонементы 3, 6 и 12 месяцев, а также PowerFitness Pro.</p>
+    </article>
+    <article class="neon-card">
+        <h2>Тренировки</h2>
+        <p>Каталог тренеров, программ и управление контентом для тренера.</p>
+    </article>
+    <article class="neon-card">
+        <h2>Профиль</h2>
+        <p>ФИО, телефон, активная подписка, история платежей и статус подтверждения.</p>
+    </article>
+</section>
+
+@code {
+    private string PhoneNumber { get; set; } = string.Empty;
+    private string StatusMessage { get; set; } = string.Empty;
+    private string DeepLink { get; set; } = string.Empty;
+    private bool IsBusy { get; set; }
+    private string ApiBaseUrl { get; set; } = string.Empty;
+    private string AuthPhoneNumber { get; set; } = string.Empty;
+    private string AuthPassword { get; set; } = string.Empty;
+    private string AuthFirstName { get; set; } = string.Empty;
+    private string AuthLastName { get; set; } = string.Empty;
+
+    private bool IsAuthenticated => !string.IsNullOrWhiteSpace(AppState.AccessToken) && AppState.CurrentUserId.HasValue;
+    private string DisplayPhone => string.IsNullOrWhiteSpace(AppState.CurrentUserPhone) ? "не выбран" : AppState.CurrentUserPhone;
+    private string CurrentApiBaseUrl => ApiEndpointResolver.GetBaseAddress();
+    private string AuthStatus => IsAuthenticated ? "выполнен вход" : "не авторизован";
+
+    protected override async Task OnInitializedAsync()
+    {
+        PhoneNumber = AppState.CurrentUserPhone;
+        AuthPhoneNumber = AppState.CurrentUserPhone;
+        ApiBaseUrl = ApiEndpointResolver.GetBaseAddress();
+        await RefreshRegistrationAsync();
+    }
+
+    private async Task RegisterAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            var result = await ApiClient.RegisterAsync(new RegisterRequestVm
+            {
+                PhoneNumber = AuthPhoneNumber,
+                Password = AuthPassword,
+                FirstName = AuthFirstName,
+                LastName = AuthLastName
+            });
+
+            if (!result.Success || result.Data is null)
+            {
+                StatusMessage = string.IsNullOrWhiteSpace(result.Message)
+                    ? "Регистрация не удалась."
+                    : result.Message;
+                return;
+            }
+
+            PhoneNumber = result.Data.User.PhoneNumber;
+            AuthPhoneNumber = result.Data.User.PhoneNumber;
+            StatusMessage = $"Регистрация выполнена: {result.Data.User.FirstName} {result.Data.User.LastName}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoginAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            var result = await ApiClient.LoginAsync(new LoginRequestVm
+            {
+                PhoneNumber = AuthPhoneNumber,
+                Password = AuthPassword
+            });
+
+            if (!result.Success || result.Data is null)
+            {
+                StatusMessage = string.IsNullOrWhiteSpace(result.Message)
+                    ? "Не удалось выполнить вход."
+                    : result.Message;
+                return;
+            }
+
+            PhoneNumber = result.Data.User.PhoneNumber;
+            AuthPhoneNumber = result.Data.User.PhoneNumber;
+            StatusMessage = $"Выполнен вход: {result.Data.User.FirstName} {result.Data.User.LastName}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task StartRegistrationAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            AppState.SetPhone(PhoneNumber);
+            StatusMessage = "Отправляем запрос на подтверждение в Telegram...";
+            DeepLink = string.Empty;
+
+            var result = await ApiClient.StartRegistrationAsync(PhoneNumber);
+            StatusMessage = result.Status;
+            DeepLink = result.DeepLink;
+
+            if (result.TicketId != Guid.Empty)
+            {
+                AppState.SetPendingTicket(result.TicketId);
+            }
+
+            await RefreshRegistrationAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RefreshRegistrationAsync()
+    {
+        var user = await SessionSync.TryRestoreCurrentUserAsync();
+        if (user is null)
+        {
+            return;
+        }
+
+        PhoneNumber = user.PhoneNumber;
+        AuthPhoneNumber = user.PhoneNumber;
+        StatusMessage = $"Профиль найден: {user.FirstName} {user.LastName}";
+    }
+
+    private void SaveApiAddress()
+    {
+        ApiEndpointResolver.SetBaseAddress(ApiBaseUrl);
+        ApiBaseUrl = ApiEndpointResolver.GetBaseAddress();
+        StatusMessage = $"Адрес API сохранён: {ApiBaseUrl}";
+    }
+
+    private void Logout()
+    {
+        ApiClient.Logout();
+        PhoneNumber = string.Empty;
+        AuthPhoneNumber = string.Empty;
+        AuthPassword = string.Empty;
+        DeepLink = string.Empty;
+        StatusMessage = "Выход выполнен.";
+    }
+}

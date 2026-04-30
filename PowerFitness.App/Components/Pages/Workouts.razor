@@ -1,0 +1,194 @@
+@page "/workouts"
+@inject FitnessApiClient ApiClient
+@inject AppState AppState
+@inject SessionSyncService SessionSync
+
+<PageTitle>Тренировки</PageTitle>
+
+<section class="section-title">
+    <h1>Тренировки и тренеры</h1>
+    <p>Каталог программ, список тренеров и управление программами для авторизованного пользователя.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="status-box">@StatusMessage</div>
+}
+
+<section class="calendar-card">
+    <div class="calendar-header">Месяц и год</div>
+    <div class="calendar-grid">
+        @for (var i = 0; i < 35; i++)
+        {
+            <div class="calendar-cell"></div>
+        }
+    </div>
+</section>
+
+@if (CanManagePrograms)
+{
+    <section class="neon-card">
+        <h2>Управление программами</h2>
+        <div class="form-grid">
+            <input @bind="Editor.Title" placeholder="Название программы" />
+            <input @bind="Editor.Difficulty" placeholder="Сложность" />
+            <input type="number" min="1" @bind="Editor.DurationMinutes" placeholder="Длительность, мин" />
+            <textarea @bind="Editor.Description" placeholder="Описание программы"></textarea>
+            <label class="checkbox-row">
+                <input type="checkbox" @bind="Editor.ProOnly" />
+                <span>Только для PowerFitness Pro</span>
+            </label>
+        </div>
+
+        <div class="action-row">
+            <button @onclick="SaveProgramAsync">@SaveButtonText</button>
+            @if (Editor.Id != Guid.Empty)
+            {
+                <button @onclick="ResetEditor">Отменить редактирование</button>
+            }
+        </div>
+    </section>
+}
+
+<section class="neon-card">
+    <h2>Программы</h2>
+    @foreach (var program in Programs)
+    {
+        <div class="program-row">
+            <div>
+                <strong>@program.Title</strong>
+                <div>@program.Description</div>
+                <div class="muted-text">Тренер: @program.TrainerName</div>
+            </div>
+            <div class="tag-stack">
+                <span class="tag">@program.Difficulty</span>
+                <span class="tag">@program.DurationMinutes мин</span>
+                @if (program.ProOnly)
+                {
+                    <span class="tag accent">PRO</span>
+                }
+                @if (CanManagePrograms)
+                {
+                    <button class="tag-button" @onclick="@(() => StartEdit(program))">Редактировать</button>
+                    <button class="tag-button" @onclick="@(() => DeleteProgramAsync(program.Id))">Удалить</button>
+                }
+            </div>
+        </div>
+    }
+</section>
+
+<section class="neon-card">
+    <h2>Тренеры</h2>
+    @foreach (var trainer in Trainers)
+    {
+        <div class="trainer-row">
+            <div>
+                <div class="trainer-name">@trainer.FirstName @trainer.LastName</div>
+                <div>@trainer.Specialization</div>
+                <div class="muted-text">@trainer.Bio</div>
+                <div class="muted-text">@trainer.PhoneNumber</div>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    private DashboardVm? Dashboard { get; set; }
+    private IReadOnlyList<WorkoutProgramVm> Programs { get; set; } = [];
+    private IReadOnlyList<TrainerProfileVm> Trainers { get; set; } = [];
+    private string StatusMessage { get; set; } = string.Empty;
+    private WorkoutProgramVm Editor { get; set; } = CreateEmptyProgram();
+
+    private bool CanManagePrograms =>
+        Dashboard?.User?.IsTrainer == true &&
+        Dashboard.TrainerProfile?.CanManagePrograms == true &&
+        AppState.CurrentUserId.HasValue;
+    private string SaveButtonText => Editor.Id == Guid.Empty ? "Создать программу" : "Сохранить изменения";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await SessionSync.TryRestoreCurrentUserAsync();
+        Programs = await ApiClient.GetWorkoutProgramsAsync();
+        Trainers = await ApiClient.GetTrainersAsync();
+
+        if (AppState.CurrentUserId.HasValue)
+        {
+            Dashboard = await ApiClient.GetDashboardAsync(AppState.CurrentUserId.Value);
+        }
+    }
+
+    private void StartEdit(WorkoutProgramVm program)
+    {
+        Editor = new WorkoutProgramVm
+        {
+            Id = program.Id,
+            TrainerId = program.TrainerId,
+            Title = program.Title,
+            Description = program.Description,
+            Difficulty = program.Difficulty,
+            DurationMinutes = program.DurationMinutes,
+            ProOnly = program.ProOnly,
+            TrainerName = program.TrainerName,
+            CreatedAtUtc = program.CreatedAtUtc,
+            UpdatedAtUtc = program.UpdatedAtUtc
+        };
+    }
+
+    private void ResetEditor()
+    {
+        Editor = CreateEmptyProgram();
+    }
+
+    private async Task SaveProgramAsync()
+    {
+        if (!AppState.CurrentUserId.HasValue)
+        {
+            StatusMessage = "Сначала войди в систему.";
+            return;
+        }
+
+        var isCreate = Editor.Id == Guid.Empty;
+        Editor.TrainerId ??= Dashboard?.TrainerProfile?.Id;
+        Editor.TrainerName = Dashboard?.TrainerProfile is null
+            ? "PowerFitness"
+            : $"{Dashboard.TrainerProfile.FirstName} {Dashboard.TrainerProfile.LastName}";
+
+        var result = await ApiClient.SaveWorkoutAsync(Editor);
+        if (!result.Success)
+        {
+            StatusMessage = string.IsNullOrWhiteSpace(result.Message) ? "Не удалось сохранить программу." : result.Message;
+            return;
+        }
+
+        StatusMessage = isCreate ? "Программа создана." : "Программа обновлена.";
+        ResetEditor();
+        await LoadAsync();
+    }
+
+    private async Task DeleteProgramAsync(Guid id)
+    {
+        var result = await ApiClient.DeleteWorkoutAsync(id);
+        if (!result.Success)
+        {
+            StatusMessage = string.IsNullOrWhiteSpace(result.Message) ? "Не удалось удалить программу." : result.Message;
+            return;
+        }
+
+        StatusMessage = "Программа удалена.";
+        await LoadAsync();
+    }
+
+    private static WorkoutProgramVm CreateEmptyProgram() =>
+        new()
+        {
+            Difficulty = "Средний",
+            DurationMinutes = 60,
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+}

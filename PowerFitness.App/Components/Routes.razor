@@ -1,0 +1,24 @@
+<ErrorBoundary>
+    <ChildContent>
+        <Router AppAssembly="typeof(MauiProgram).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            </Found>
+            <NotFound>
+                <LayoutView Layout="typeof(Layout.MainLayout)">
+                    <div class="neon-card">
+                        <h2>Страница не найдена</h2>
+                        <p>Выбери раздел через нижнее меню.</p>
+                    </div>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div style="padding:16px;color:white;background:#1a1a1a;min-height:100vh;">
+            <h2>Ошибка запуска интерфейса</h2>
+            <p>@ex.Message</p>
+            <pre style="white-space:pre-wrap;">@ex.ToString()</pre>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>

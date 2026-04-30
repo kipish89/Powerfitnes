@@ -1,0 +1,188 @@
+@page "/profile"
+@inject FitnessApiClient ApiClient
+@inject AppState AppState
+@inject SessionSyncService SessionSync
+
+<PageTitle>Профиль</PageTitle>
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <div class="neon-card">@ErrorMessage</div>
+}
+else if (Dashboard is null)
+{
+    <div class="neon-card">Загрузка профиля...</div>
+}
+else
+{
+    <section class="profile-header neon-card">
+        <img src="@AvatarUrl" alt="avatar" class="avatar" />
+        <div>
+            <h1>@Dashboard.User?.FirstName @Dashboard.User?.LastName</h1>
+            <div class="profile-line">@Dashboard.User?.PhoneNumber</div>
+            <div class="profile-line">Telegram подтвержден: @(Dashboard.User?.TelegramConfirmed == true ? "да" : "нет")</div>
+            <div class="profile-line">PowerFitness Pro: @(Dashboard.User?.IsProActive == true ? "активна" : "неактивна")</div>
+            <div class="profile-line">Роль тренера: @(Dashboard.User?.IsTrainer == true ? "да" : "нет")</div>
+        </div>
+    </section>
+
+    <section class="neon-card">
+        <h2>Редактирование профиля</h2>
+        <div class="form-grid">
+            <input @bind="Editor.FirstName" placeholder="Имя" />
+            <input @bind="Editor.LastName" placeholder="Фамилия" />
+            <input @bind="Editor.PhoneNumber" placeholder="Телефон" />
+            <input @bind="Editor.Gender" placeholder="Пол" />
+        </div>
+        <div class="action-row">
+            <button @onclick="SaveProfileAsync">Сохранить профиль</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(SaveStatus))
+        {
+            <div class="status-box">@SaveStatus</div>
+        }
+    </section>
+
+    <section class="neon-card">
+        <h2>Аватар</h2>
+        <p class="muted-text">Допустимые форматы: JPG, PNG, WEBP. Максимальный размер: 5 МБ.</p>
+        <InputFile OnChange="UploadAvatarAsync" accept=".jpg,.jpeg,.png,.webp" />
+        @if (!string.IsNullOrWhiteSpace(UploadStatus))
+        {
+            <div class="status-box">@UploadStatus</div>
+        }
+        <a class="deep-link" href="@AvatarUrl" target="_blank">Скачать текущий файл</a>
+    </section>
+
+    @if (Dashboard.TrainerProfile is not null)
+    {
+        <section class="neon-card">
+            <h2>Карточка тренера</h2>
+            <p>@Dashboard.TrainerProfile.FirstName @Dashboard.TrainerProfile.LastName</p>
+            <p>@Dashboard.TrainerProfile.Specialization</p>
+            <p>@Dashboard.TrainerProfile.Bio</p>
+        </section>
+    }
+
+    <section class="neon-card">
+        <h2>Подписка Pro</h2>
+        <p>Статус: @Dashboard.ProSubscription?.Status</p>
+        <p>Срок: @Dashboard.ProSubscription?.StartsAtUtc.ToLocalTime().ToString("dd.MM.yyyy") - @Dashboard.ProSubscription?.EndsAtUtc.ToLocalTime().ToString("dd.MM.yyyy")</p>
+    </section>
+
+    <section class="neon-card">
+        <h2>Последние платежи</h2>
+        @if (Dashboard.Payments.Count == 0)
+        {
+            <p class="muted-text">Платежей пока нет.</p>
+        }
+        else
+        {
+            @foreach (var payment in Dashboard.Payments)
+            {
+                <div class="list-row">
+                    <span>@payment.Amount @payment.Currency</span>
+                    <span>@payment.Status</span>
+                </div>
+            }
+        }
+    </section>
+}
+
+@code {
+    private DashboardVm? Dashboard { get; set; }
+    private UserProfileVm Editor { get; set; } = new();
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string UploadStatus { get; set; } = string.Empty;
+    private string SaveStatus { get; set; } = string.Empty;
+
+    private string AvatarUrl => ApiEndpointResolver.ResolveAssetUrl(Dashboard?.User?.AvatarUrl);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        Dashboard = null;
+        ErrorMessage = string.Empty;
+
+        var currentUser = await SessionSync.TryRestoreCurrentUserAsync();
+        if (currentUser is null)
+        {
+            ErrorMessage = "Сначала войди через пароль или подтверди профиль через Telegram.";
+            return;
+        }
+
+        if (!AppState.CurrentUserId.HasValue)
+        {
+            ErrorMessage = "Пользователь не найден в локальной сессии. Выполни вход заново.";
+            return;
+        }
+
+        Dashboard = await ApiClient.GetDashboardAsync(AppState.CurrentUserId.Value);
+        if (Dashboard?.User is null)
+        {
+            ErrorMessage = "Не удалось загрузить профиль. Проверь авторизацию, адрес API или доступность сервера.";
+            return;
+        }
+
+        AppState.SetUser(Dashboard.User.Id, Dashboard.User.PhoneNumber);
+        Editor = new UserProfileVm
+        {
+            Id = Dashboard.User.Id,
+            PhoneNumber = Dashboard.User.PhoneNumber,
+            FirstName = Dashboard.User.FirstName,
+            LastName = Dashboard.User.LastName,
+            Gender = Dashboard.User.Gender,
+            AvatarUrl = Dashboard.User.AvatarUrl,
+            TelegramConfirmed = Dashboard.User.TelegramConfirmed,
+            IsProActive = Dashboard.User.IsProActive,
+            IsTrainer = Dashboard.User.IsTrainer,
+            TrainerProfileId = Dashboard.User.TrainerProfileId
+        };
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        var result = await ApiClient.UpdateUserAsync(Editor);
+        if (!result.Success || result.Data is null)
+        {
+            SaveStatus = string.IsNullOrWhiteSpace(result.Message)
+                ? "Не удалось сохранить профиль."
+                : result.Message;
+            return;
+        }
+
+        SaveStatus = "Профиль сохранён.";
+        await LoadProfileAsync();
+    }
+
+    private async Task UploadAvatarAsync(InputFileChangeEventArgs eventArgs)
+    {
+        if (!AppState.CurrentUserId.HasValue)
+        {
+            UploadStatus = "Сначала войди в аккаунт.";
+            return;
+        }
+
+        var file = eventArgs.File;
+        if (file is null)
+        {
+            UploadStatus = "Файл не выбран.";
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+        var upload = await ApiClient.UploadAvatarAsync(AppState.CurrentUserId.Value, stream, file.Name, file.ContentType);
+        if (upload is null)
+        {
+            UploadStatus = "Не удалось загрузить файл. Проверь тип файла, размер и авторизацию.";
+            return;
+        }
+
+        UploadStatus = $"Файл загружен: {upload.FileName}";
+        await LoadProfileAsync();
+    }
+}
