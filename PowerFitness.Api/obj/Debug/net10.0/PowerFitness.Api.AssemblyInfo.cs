@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PowerFitness.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+03e6edd25e9bc32199ed7c66b9e3bb568e3ebccd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ac84ea8e039507d88ccda02ed3a37ef2776f4473")]
 [assembly: System.Reflection.AssemblyProductAttribute("PowerFitness.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PowerFitness.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

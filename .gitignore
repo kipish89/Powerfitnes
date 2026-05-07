@@ -11,3 +11,10 @@
 
 # Local scripts (machine-specific)
 Start-PowerFitness*.ps1
+# Secrets
+.env
+*.env
+telegram_bridge/.env
+telegram_bridge/.env.local
+**/secrets.json
+**/*service-account*.json
