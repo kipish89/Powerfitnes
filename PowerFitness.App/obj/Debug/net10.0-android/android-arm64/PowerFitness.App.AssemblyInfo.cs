@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PowerFitness.App")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+03e6edd25e9bc32199ed7c66b9e3bb568e3ebccd")]
 [assembly: System.Reflection.AssemblyProductAttribute("PowerFitness.App")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PowerFitness.App")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

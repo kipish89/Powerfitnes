@@ -45,7 +45,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "all"
         },
@@ -405,7 +405,7 @@
           ]
         },
         "restoreAuditProperties": {
-          "enableAudit": "false",
+          "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "all"
         },

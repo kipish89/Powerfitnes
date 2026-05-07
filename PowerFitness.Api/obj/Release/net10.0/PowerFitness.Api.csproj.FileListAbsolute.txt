@@ -156,3 +156,4 @@ C:\Users\User\Documents\powerfitness_app\PowerFitness.Api\obj\Release\net10.0\re
 C:\Users\User\Documents\powerfitness_app\PowerFitness.Api\obj\Release\net10.0\PowerFitness.Api.pdb
 C:\Users\User\Documents\powerfitness_app\PowerFitness.Api\obj\Release\net10.0\PowerFitness.Api.genruntimeconfig.cache
 C:\Users\User\Documents\powerfitness_app\PowerFitness.Api\obj\Release\net10.0\ref\PowerFitness.Api.dll
+C:\Users\User\Documents\powerfitness_app\PowerFitness.Api\obj\Release\net10.0\PowerFitness.Api.sourcelink.json

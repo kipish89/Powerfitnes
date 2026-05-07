@@ -149,3 +149,4 @@ C:\Users\User\Documents\powerfitness_app\PowerFitness.Api.Tests\obj\Release\net1
 C:\Users\User\Documents\powerfitness_app\PowerFitness.Api.Tests\obj\Release\net10.0\PowerFitness.Api.Tests.pdb
 C:\Users\User\Documents\powerfitness_app\PowerFitness.Api.Tests\obj\Release\net10.0\PowerFitness.Api.Tests.genruntimeconfig.cache
 C:\Users\User\Documents\powerfitness_app\PowerFitness.Api.Tests\obj\Release\net10.0\ref\PowerFitness.Api.Tests.dll
+C:\Users\User\Documents\powerfitness_app\PowerFitness.Api.Tests\obj\Release\net10.0\PowerFitness.Api.Tests.sourcelink.json

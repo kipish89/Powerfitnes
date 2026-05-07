@@ -1,0 +1,13 @@
+﻿# Build artifacts
+**/bin/
+**/obj/
+.vs/
+
+# User files
+*.user
+
+# Local runtime files
+*.log
+
+# Local scripts (machine-specific)
+Start-PowerFitness*.ps1

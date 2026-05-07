@@ -565,3 +565,5 @@ C:\Users\User\Documents\powerfitness_app\PowerFitness.App\obj\Debug\net10.0-wind
 C:\Users\User\Documents\powerfitness_app\PowerFitness.App\obj\Debug\net10.0-windows10.0.19041.0\win-x64\qualifiers.txt
 C:\Users\User\Documents\powerfitness_app\PowerFitness.App\obj\Debug\net10.0-windows10.0.19041.0\win-x64\qualifiers.txt.intermediate
 C:\Users\User\Documents\powerfitness_app\PowerFitness.App\obj\Debug\net10.0-windows10.0.19041.0\win-x64\MultipleQualifiersPerDimensionFound.txt
+C:\Users\User\Documents\powerfitness_app\PowerFitness.App\obj\Debug\net10.0-windows10.0.19041.0\win-x64\PowerFitness.App.sourcelink.json
+C:\Users\User\Documents\powerfitness_app\PowerFitness.App\obj\Debug\net10.0-windows10.0.19041.0\win-x64\staticwebassets.upToDateCheck.txt
